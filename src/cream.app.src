@@ -1,0 +1,10 @@
+{application, cream, [
+    {description, "An Erlang binary cache."},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {env, []},
+    {modules, []},
+    {licenses, ["Apache 2.0"]},
+    {links, []}
+]}.

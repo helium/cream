@@ -1,0 +1,16 @@
+[package]
+name = "cream"
+build = "native/build.rs"
+edition = "2021"
+version = "0.1.0"
+
+[lib]
+crate-type = ["dylib"]
+name = "cream_nif"
+path = "native/lib.rs"
+
+[dependencies]
+lazy_static = "*"
+moka = "*"
+rustler = "0.25.0"
+rustler_stored_term = "0.1.0"
