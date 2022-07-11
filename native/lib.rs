@@ -1,4 +1,4 @@
-use moka::sync::Cache;
+use moka::sync::{Cache, ConcurrentCacheExt};
 use rustler::{atoms, Atom, Binary, Encoder, Env, OwnedBinary, ResourceArc, Term};
 use rustler_stored_term::term_box::TermBox;
 use std::{borrow::Borrow, hash::Hash};
@@ -29,6 +29,17 @@ fn get<'a>(env: Env<'a>, cache: ResourceArc<Cream>, key: Binary) -> Term<'a> {
         Some(term_box) => (atoms::ok(), term_box.get(env)).encode(env),
         None => atoms::notfound().encode(env),
     }
+}
+
+#[rustler::nif]
+fn sync(cache: ResourceArc<Cream>) -> Atom {
+    cache.sync();
+    atoms::ok()
+}
+
+#[rustler::nif]
+fn count(cache: ResourceArc<Cream>) -> u64 {
+    cache.entry_count()
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -92,6 +103,6 @@ pub fn load(env: Env, _load_info: Term) -> bool {
 
 rustler::init!(
     "cream_nif",
-    [with_capacity, insert, contains, get],
+    [with_capacity, insert, contains, get, sync, count],
     load = load
 );
