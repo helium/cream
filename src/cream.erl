@@ -52,7 +52,7 @@ cache(Cache, Key, ExpensiveValFun) ->
             CachedVal;
         notfound ->
             Val = ExpensiveValFun(),
-            ok = ?MODULE:insert(Cache, Key, Val),
+            ok = ?MODULE:insert(Cache, KeyBin, Val),
             Val
     end.
 
