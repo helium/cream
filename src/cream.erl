@@ -3,6 +3,7 @@
 -export([
     new/1,
     new/2,
+    cache/3,
     contains/2,
     insert/3,
     get/2,
@@ -30,41 +31,82 @@
 ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Public                                                                 %%
+%% Public API                                                             %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec new(
+    MaxCapacity :: non_neg_integer()
+) -> {ok, reference()} | {error, term()}.
+new(MaxCapacity) ->
+    new(MaxCapacity, []).
+
+-spec cache(
+    Cache :: reference(),
+    Key :: term(),
+    ExpensiveValFun :: fun(() -> term())
+) -> term().
+cache(Cache, Key, ExpensiveValFun) ->
+    KeyBin = term_to_binary(Key),
+    case ?MODULE:get(Cache, KeyBin) of
+        {ok, CachedVal} ->
+            CachedVal;
+        notfound ->
+            Val = ExpensiveValFun(),
+            ok = ?MODULE:insert(Cache, Key, Val),
+            Val
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Public NIFs                                                            %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(NOT_LOADED, not_loaded(?LINE)).
 
--spec new(MaxCapacity :: non_neg_integer()) -> {ok, reference()} | {error, any()}.
-new(MaxCapacity) ->
-    new(MaxCapacity, []).
-
--spec new(MaxCapacity :: non_neg_integer(), CacheOpts :: advanced_cache_opts()) ->
-    {ok, reference()} | {error, any()}.
+-spec new(
+    MaxCapacity :: non_neg_integer(),
+    CacheOpts :: advanced_cache_opts()
+) -> {ok, reference()} | {error, term()}.
 new(_MaxCapacity, _CacheOpts) ->
     ?NOT_LOADED.
 
--spec insert(_Cache :: reference(), _Key :: binary(), _Value :: term()) -> ok.
+-spec insert(
+    Cache :: reference(),
+    Key :: binary(),
+    Value :: term()
+) -> ok.
 insert(_Cache, _Key, _Value) ->
     ?NOT_LOADED.
 
--spec contains(_Cache :: reference(), _Key :: binary()) -> boolean().
+-spec contains(
+    Cache :: reference(),
+    Key :: binary()
+) -> boolean().
 contains(_Cache, _Key) ->
     ?NOT_LOADED.
 
--spec get(_Cache :: reference(), _Key :: binary()) -> notfound | {ok, term()}.
+-spec get(
+    Cache :: reference(),
+    Key :: binary()
+) -> notfound | {ok, term()}.
 get(_Cache, _Key) ->
     ?NOT_LOADED.
 
--spec evict(_Cache :: reference(), _Key :: binary()) -> ok.
+-spec evict(
+    Cache :: reference(),
+    Key :: binary()
+) -> ok.
 evict(_Cache, _Key) ->
     ?NOT_LOADED.
 
--spec sync(_Cache :: reference()) -> ok.
+-spec sync(
+    Cache :: reference()
+) -> ok.
 sync(_Cache) ->
     ?NOT_LOADED.
 
--spec count(_Cache :: reference()) -> non_neg_integer().
+-spec count(
+    Cache :: reference()
+) -> non_neg_integer().
 count(_Cache) ->
     ?NOT_LOADED.
 
