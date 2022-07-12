@@ -20,10 +20,10 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
             Ok((atom, val)) if atom == atoms::initial_capacity() => {
                 builder = builder.initial_capacity(val as usize)
             }
-            Ok((atom, val)) if atom == atoms::time_to_live() => {
+            Ok((atom, val)) if atom == atoms::seconds_to_live() => {
                 builder = builder.time_to_live(Duration::from_secs(val))
             }
-            Ok((atom, val)) if atom == atoms::time_to_idle() => {
+            Ok((atom, val)) if atom == atoms::seconds_to_idle() => {
                 builder = builder.time_to_idle(Duration::from_secs(val))
             }
             _ => return (atoms::error(), ("invalid option", opt)).encode(env),
@@ -126,8 +126,8 @@ mod atoms {
         initial_capacity,
         notfound,
         ok,
-        time_to_idle,
-        time_to_live,
+        seconds_to_idle,
+        seconds_to_live,
     }
 }
 

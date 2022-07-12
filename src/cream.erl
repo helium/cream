@@ -24,10 +24,10 @@
     {initial_capacity, Items :: non_neg_integer()} |
     %% A cached entry will be expired after the specified duration
     %% past from insert.
-    {time_to_live, Seconds :: non_neg_integer()} |
+    {seconds_to_live, Seconds :: non_neg_integer()} |
     %% A cached entry will be expired after the specified duration
     %% past from get or insert.
-    {time_to_idle, Seconds :: non_neg_integer()}
+    {seconds_to_idle, Seconds :: non_neg_integer()}
 ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
