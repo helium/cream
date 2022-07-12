@@ -1,15 +1,35 @@
 use moka::sync::{Cache, ConcurrentCacheExt};
-use rustler::{atoms, Atom, Binary, Encoder, Env, OwnedBinary, ResourceArc, Term};
+use rustler::{atoms, Atom, Binary, Encoder, Env, ListIterator, OwnedBinary, ResourceArc, Term};
 use rustler_stored_term::term_box::TermBox;
-use std::{borrow::Borrow, hash::Hash};
+use std::{
+    borrow::Borrow,
+    hash::{Hash, Hasher},
+    time::Duration,
+};
 
 ////////////////////////////////////////////////////////////////////////////
 // NIFs                                                                   //
 ////////////////////////////////////////////////////////////////////////////
 
 #[rustler::nif]
-fn with_capacity(capacity: u64) -> ResourceArc<Cream> {
-    ResourceArc::new(Cream(Cache::new(capacity)))
+fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> Term<'a> {
+    let mut builder = Cache::builder().max_capacity(max_capacity);
+
+    for opt in advanced_opts {
+        match opt.decode::<(Atom, u64)>() {
+            Ok((atom, val)) if atom == atoms::initial_capacity() => {
+                builder = builder.initial_capacity(val as usize)
+            }
+            Ok((atom, val)) if atom == atoms::time_to_live() => {
+                builder = builder.time_to_live(Duration::from_secs(val))
+            }
+            Ok((atom, val)) if atom == atoms::time_to_idle() => {
+                builder = builder.time_to_idle(Duration::from_secs(val))
+            }
+            _ => return (atoms::error(), ("invalid option", opt)).encode(env),
+        }
+    }
+    (atoms::ok(), ResourceArc::new(Cream(builder.build()))).encode(env)
 }
 
 #[rustler::nif]
@@ -32,7 +52,7 @@ fn get<'a>(env: Env<'a>, cache: ResourceArc<Cream>, key: Binary) -> Term<'a> {
 }
 
 #[rustler::nif]
-fn evict<'a>(cache: ResourceArc<Cream>, key: Binary) -> Atom {
+fn evict(cache: ResourceArc<Cream>, key: Binary) -> Atom {
     cache.invalidate(&Bin(key.to_owned().unwrap()));
     atoms::ok()
 }
@@ -54,7 +74,6 @@ fn count(cache: ResourceArc<Cream>) -> u64 {
 
 /// A newtype wrapper around OwnedBinary for implementing missing
 /// traits.
-#[derive(Hash)]
 struct Bin(OwnedBinary);
 
 impl Borrow<[u8]> for Bin {
@@ -66,6 +85,12 @@ impl Borrow<[u8]> for Bin {
 impl PartialEq for Bin {
     fn eq(&self, other: &Self) -> bool {
         self.0.as_slice() == other.0.as_slice()
+    }
+}
+
+impl Hash for Bin {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.as_slice().hash(state)
     }
 }
 
@@ -97,8 +122,12 @@ impl std::ops::Deref for Cream {
 mod atoms {
     super::atoms! {
         already_exists,
+        error,
+        initial_capacity,
         notfound,
         ok,
+        time_to_idle,
+        time_to_live,
     }
 }
 
@@ -109,6 +138,6 @@ pub fn load(env: Env, _load_info: Term) -> bool {
 
 rustler::init!(
     "cream_nif",
-    [with_capacity, insert, contains, get, evict, sync, count],
+    [new, insert, contains, get, evict, sync, count],
     load = load
 );

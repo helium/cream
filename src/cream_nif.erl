@@ -1,7 +1,8 @@
 -module(cream_nif).
 
 -export([
-    with_capacity/1,
+    new/1,
+    new/2,
     contains/2,
     insert/3,
     get/2,
@@ -16,14 +17,31 @@
 %% Types                                                                  %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Advanced cache options.
+-type advanced_cache_opts() :: [
+    %% Sets the initial capacity (number of entries) of the cache.
+    {initial_capacity, Items :: non_neg_integer()} |
+    %% A cached entry will be expired after the specified duration
+    %% past from insert.
+    {time_to_live, Seconds :: non_neg_integer()} |
+    %% A cached entry will be expired after the specified duration
+    %% past from get or insert.
+    {time_to_idle, Seconds :: non_neg_integer()}
+].
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Public                                                                 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(NOT_LOADED, not_loaded(?LINE)).
 
--spec with_capacity(_Capacity :: non_neg_integer()) -> reference().
-with_capacity(_Capacity) ->
+-spec new(MaxCapacity :: non_neg_integer()) -> {ok, reference()} | {error, any()}.
+new(MaxCapacity) ->
+    new(MaxCapacity, []).
+
+-spec new(MaxCapacity :: non_neg_integer(), CacheOpts :: advanced_cache_opts()) ->
+    {ok, reference()} | {error, any()}.
+new(_MaxCapacity, _CacheOpts) ->
     ?NOT_LOADED.
 
 -spec insert(_Cache :: reference(), _Key :: binary(), _Value :: term()) -> ok.
@@ -58,7 +76,7 @@ count(_Cache) ->
 -include_lib("eunit/include/eunit.hrl").
 
 basic_all_feature__test() ->
-    Cache = cream_nif:with_capacity(3),
+    {ok, Cache} = cream_nif:new(3),
 
     ok = cream_nif:insert(Cache, <<1>>, 1),
     ?assertEqual(true, cream_nif:contains(Cache, <<1>>)),
