@@ -10,7 +10,6 @@ name = "cream_nif"
 path = "native/lib.rs"
 
 [dependencies]
-lazy_static = "*"
 moka = "*"
 rustler = "0.25.0"
 rustler_stored_term = "0.1.0"

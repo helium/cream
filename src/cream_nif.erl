@@ -5,6 +5,7 @@
     contains/2,
     insert/3,
     get/2,
+    evict/2,
     count/1,
     sync/1
 ]).
@@ -35,6 +36,10 @@ contains(_Cache, _Key) ->
 
 -spec get(_Cache :: reference(), _Key :: binary()) -> notfound | {ok, term()}.
 get(_Cache, _Key) ->
+    ?NOT_LOADED.
+
+-spec evict(_Cache :: reference(), _Key :: binary()) -> ok.
+evict(_Cache, _Key) ->
     ?NOT_LOADED.
 
 -spec sync(_Cache :: reference()) -> ok.
@@ -81,11 +86,12 @@ basic_all_feature__test() ->
     ?assertEqual({ok, <<"four">>}, cream_nif:get(Cache, <<4>>)),
     ?assertEqual({ok, "three"}, cream_nif:get(Cache, <<3>>)),
     ?assertEqual({ok, two}, cream_nif:get(Cache, <<2>>)),
+    ok = cream_nif:evict(Cache, <<3>>),
 
     %% The cache is eventually consistent, so we need to force `sync'
     %% it to guarantee that `count' is accurate.
     ok = cream_nif:sync(Cache),
-    ?assertEqual(3, cream_nif:count(Cache)),
+    ?assertEqual(notfound, cream_nif:get(Cache, <<3>>)),
 
     ok.
 

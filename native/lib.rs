@@ -32,6 +32,12 @@ fn get<'a>(env: Env<'a>, cache: ResourceArc<Cream>, key: Binary) -> Term<'a> {
 }
 
 #[rustler::nif]
+fn evict<'a>(cache: ResourceArc<Cream>, key: Binary) -> Atom {
+    cache.invalidate(&Bin(key.to_owned().unwrap()));
+    atoms::ok()
+}
+
+#[rustler::nif]
 fn sync(cache: ResourceArc<Cream>) -> Atom {
     cache.sync();
     atoms::ok()
@@ -103,6 +109,6 @@ pub fn load(env: Env, _load_info: Term) -> bool {
 
 rustler::init!(
     "cream_nif",
-    [with_capacity, insert, contains, get, sync, count],
+    [with_capacity, insert, contains, get, evict, sync, count],
     load = load
 );
