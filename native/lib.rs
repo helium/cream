@@ -121,7 +121,6 @@ impl std::ops::Deref for Cream {
 
 mod atoms {
     super::atoms! {
-        already_exists,
         error,
         initial_capacity,
         notfound,
