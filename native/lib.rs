@@ -40,12 +40,12 @@ fn insert(cache: ResourceArc<Cream>, key: Binary, value: Term) -> Atom {
 
 #[rustler::nif]
 fn contains(cache: ResourceArc<Cream>, key: Binary) -> bool {
-    cache.contains_key(&Bin(key.to_owned().unwrap()))
+    cache.contains_key(key.as_slice())
 }
 
 #[rustler::nif]
 fn get<'a>(env: Env<'a>, cache: ResourceArc<Cream>, key: Binary) -> Term<'a> {
-    match cache.get(&Bin(key.to_owned().unwrap())) {
+    match cache.get(key.as_slice()) {
         Some(term_box) => (atoms::ok(), term_box.get(env)).encode(env),
         None => atoms::notfound().encode(env),
     }
@@ -53,7 +53,7 @@ fn get<'a>(env: Env<'a>, cache: ResourceArc<Cream>, key: Binary) -> Term<'a> {
 
 #[rustler::nif]
 fn evict(cache: ResourceArc<Cream>, key: Binary) -> Atom {
-    cache.invalidate(&Bin(key.to_owned().unwrap()));
+    cache.invalidate(key.as_slice());
     atoms::ok()
 }
 
