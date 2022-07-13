@@ -136,7 +136,7 @@ pub fn load(env: Env, _load_info: Term) -> bool {
 }
 
 rustler::init!(
-    "cream",
+    "cream_nif",
     [new, insert, contains, get, evict, sync, count],
     load = load
 );

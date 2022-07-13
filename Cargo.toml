@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [lib]
 crate-type = ["dylib"]
-name = "cream"
+name = "cream_nif"
 path = "native/lib.rs"
 
 [dependencies]

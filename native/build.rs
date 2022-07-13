@@ -16,9 +16,9 @@ fn main() {
     let profile = env::var("PROFILE").unwrap();
     // We use target OS to determine if extension is `.so`, `.dll`, or `.dylib`
     let file_name = match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
-        "windows" => "libcream.dll",
-        "macos" | "ios" => "libcream.dylib",
-        _ => "libcream.so",
+        "windows" => "libcream_nif.dll",
+        "macos" | "ios" => "libcream_nif.dylib",
+        _ => "libcream_nif.so",
     };
 
     // Location of libcream

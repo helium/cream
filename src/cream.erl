@@ -12,8 +12,6 @@
     sync/1
 ]).
 
--on_load(init/0).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Types                                                                  %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31,14 +29,21 @@
 ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Public API                                                             %%
+%% Basic API                                                              %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec new(
     MaxCapacity :: non_neg_integer()
 ) -> {ok, reference()} | {error, term()}.
 new(MaxCapacity) ->
-    new(MaxCapacity, []).
+    cream_nif:new(MaxCapacity, []).
+
+-spec new(
+    MaxCapacity :: non_neg_integer(),
+    CacheOpts :: advanced_cache_opts()
+) -> {ok, reference()} | {error, term()}.
+new(MaxCapacity, CacheOpts) ->
+    cream_nif:new(MaxCapacity, CacheOpts).
 
 -spec cache(
     Cache :: reference(),
@@ -47,68 +52,63 @@ new(MaxCapacity) ->
 ) -> term().
 cache(Cache, Key, ExpensiveValFun) ->
     KeyBin = term_to_binary(Key),
-    case ?MODULE:get(Cache, KeyBin) of
+    case cream_nif:get(Cache, KeyBin) of
         {ok, CachedVal} ->
             CachedVal;
         notfound ->
             Val = ExpensiveValFun(),
-            ok = ?MODULE:insert(Cache, KeyBin, Val),
+            ok = cream_nif:insert(Cache, KeyBin, Val),
             Val
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Public NIFs                                                            %%
+%% Low level API                                                          %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
--define(NOT_LOADED, not_loaded(?LINE)).
-
--spec new(
-    MaxCapacity :: non_neg_integer(),
-    CacheOpts :: advanced_cache_opts()
-) -> {ok, reference()} | {error, term()}.
-new(_MaxCapacity, _CacheOpts) ->
-    ?NOT_LOADED.
 
 -spec insert(
     Cache :: reference(),
-    Key :: binary(),
+    Key :: term(),
     Value :: term()
 ) -> ok.
-insert(_Cache, _Key, _Value) ->
-    ?NOT_LOADED.
+insert(Cache, Key, Value) ->
+    KeyBin = term_to_binary(Key),
+    cream_nif:insert(Cache, KeyBin, Value).
 
 -spec contains(
     Cache :: reference(),
-    Key :: binary()
+    Key :: term()
 ) -> boolean().
-contains(_Cache, _Key) ->
-    ?NOT_LOADED.
+contains(Cache, Key) ->
+    KeyBin = term_to_binary(Key),
+    cream_nif:contains(Cache, KeyBin).
 
 -spec get(
     Cache :: reference(),
-    Key :: binary()
+    Key :: term()
 ) -> notfound | {ok, term()}.
-get(_Cache, _Key) ->
-    ?NOT_LOADED.
+get(Cache, Key) ->
+    KeyBin = term_to_binary(Key),
+    cream_nif:get(Cache, KeyBin).
 
 -spec evict(
     Cache :: reference(),
-    Key :: binary()
+    Key :: term()
 ) -> ok.
-evict(_Cache, _Key) ->
-    ?NOT_LOADED.
+evict(Cache, Key) ->
+    KeyBin = term_to_binary(Key),
+    cream_nif:evict(Cache, KeyBin).
 
 -spec sync(
     Cache :: reference()
 ) -> ok.
-sync(_Cache) ->
-    ?NOT_LOADED.
+sync(Cache) ->
+    cream_nif:sync(Cache).
 
 -spec count(
     Cache :: reference()
 ) -> non_neg_integer().
-count(_Cache) ->
-    ?NOT_LOADED.
+count(Cache) ->
+    cream_nif:count(Cache).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Testing                                                                %%
@@ -120,60 +120,39 @@ count(_Cache) ->
 basic_all_feature__test() ->
     {ok, Cache} = cream:new(3),
 
-    ok = cream:insert(Cache, <<1>>, 1),
-    ?assertEqual(true, cream:contains(Cache, <<1>>)),
+    ok = cream:insert(Cache, 1, 1),
+    ?assertEqual(true, cream:contains(Cache, 1)),
     ?assertEqual(false, cream:contains(Cache, <<2>>)),
-    ?assertEqual(false, cream:contains(Cache, <<3>>)),
-    ?assertEqual(false, cream:contains(Cache, <<4>>)),
+    ?assertEqual(false, cream:contains(Cache, three)),
+    ?assertEqual(false, cream:contains(Cache, "four")),
 
     ok = cream:insert(Cache, <<2>>, two),
-    ?assertEqual(true, cream:contains(Cache, <<1>>)),
+    ?assertEqual(true, cream:contains(Cache, 1)),
     ?assertEqual(true, cream:contains(Cache, <<2>>)),
-    ?assertEqual(false, cream:contains(Cache, <<3>>)),
-    ?assertEqual(false, cream:contains(Cache, <<4>>)),
+    ?assertEqual(false, cream:contains(Cache, three)),
+    ?assertEqual(false, cream:contains(Cache, "four")),
 
-    ok = cream:insert(Cache, <<3>>, "three"),
-    ?assertEqual(true, cream:contains(Cache, <<1>>)),
+    ok = cream:insert(Cache, three, "three"),
+    ?assertEqual(true, cream:contains(Cache, 1)),
     ?assertEqual(true, cream:contains(Cache, <<2>>)),
-    ?assertEqual(true, cream:contains(Cache, <<3>>)),
-    ?assertEqual(false, cream:contains(Cache, <<4>>)),
+    ?assertEqual(true, cream:contains(Cache, three)),
+    ?assertEqual(false, cream:contains(Cache, "four")),
 
-    ok = cream:insert(Cache, <<4>>, <<"four">>),
+    ok = cream:insert(Cache, "four", <<"four">>),
     ?assertEqual(true, cream:contains(Cache, <<2>>)),
-    ?assertEqual(true, cream:contains(Cache, <<3>>)),
-    ?assertEqual(true, cream:contains(Cache, <<4>>)),
+    ?assertEqual(true, cream:contains(Cache, three)),
+    ?assertEqual(true, cream:contains(Cache, "four")),
 
-    ?assertEqual({ok, <<"four">>}, cream:get(Cache, <<4>>)),
-    ?assertEqual({ok, "three"}, cream:get(Cache, <<3>>)),
+    ?assertEqual({ok, <<"four">>}, cream:get(Cache, "four")),
+    ?assertEqual({ok, "three"}, cream:get(Cache, three)),
     ?assertEqual({ok, two}, cream:get(Cache, <<2>>)),
-    ok = cream:evict(Cache, <<3>>),
+    ok = cream:evict(Cache, three),
 
     %% The cache is eventually consistent, so we need to force `sync'
     %% it to guarantee that `count' is accurate.
     ok = cream:sync(Cache),
-    ?assertEqual(notfound, cream:get(Cache, <<3>>)),
+    ?assertEqual(notfound, cream:get(Cache, three)),
 
     ok.
 
 -endif.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Internals                                                              %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-not_loaded(Line) ->
-    erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
-
-init() ->
-    SoName =
-        case code:priv_dir(cream) of
-            {error, bad_name} ->
-                case filelib:is_dir(filename:join(["..", priv])) of
-                    true ->
-                        filename:join(["..", priv, ?MODULE]);
-                    false ->
-                        filename:join([priv, ?MODULE])
-                end;
-            Dir ->
-                filename:join(Dir, ?MODULE)
-        end,
-    ok = erlang:load_nif(SoName, 0).
