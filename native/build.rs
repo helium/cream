@@ -32,6 +32,7 @@ fn main() {
     // Create file in `repo` and write the path to the directory of
     // where to find libcream
     let so_path_file_path = Path::new(&repo).join("so-path");
+    println!("cargo:rerun-if-changed={}", so_path_file_path.display());
     let mut so_path_file = File::create(so_path_file_path).unwrap();
     write!(so_path_file, "{}", so_path.to_str().unwrap()).unwrap();
 }
