@@ -54,8 +54,8 @@ new(MaxCapacity, CacheOpts) ->
 cache(Cache, Key, ExpensiveValFun) ->
     KeyBin = term_to_binary(Key),
     case cream_nif:get(Cache, KeyBin) of
-        {ok, CachedVal} ->
-            CachedVal;
+        {ok, CachedValBin} ->
+            binary_to_term(CachedValBin);
         notfound ->
             Val = ExpensiveValFun(),
             ok = cream_nif:insert(Cache, KeyBin, Val),
@@ -73,7 +73,8 @@ cache(Cache, Key, ExpensiveValFun) ->
 ) -> ok.
 insert(Cache, Key, Value) ->
     KeyBin = term_to_binary(Key),
-    cream_nif:insert(Cache, KeyBin, Value).
+    ValueBin = term_to_binary(Value),
+    cream_nif:insert(Cache, KeyBin, ValueBin).
 
 -spec contains(
     Cache :: reference(),
@@ -89,7 +90,10 @@ contains(Cache, Key) ->
 ) -> notfound | {ok, term()}.
 get(Cache, Key) ->
     KeyBin = term_to_binary(Key),
-    cream_nif:get(Cache, KeyBin).
+    case cream_nif:get(Cache, KeyBin) of
+        {ok, ValueBin} -> {ok, binary_to_term(ValueBin)};
+        Other -> Other
+    end.
 
 -spec evict(
     Cache :: reference(),
