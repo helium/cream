@@ -10,6 +10,6 @@ name = "cream_nif"
 path = "native/lib.rs"
 
 [dependencies]
-moka = "*"
+moka = "0.9.1"
 rustler = "0.25.0"
 rustler_stored_term = "0.1.0"
