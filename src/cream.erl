@@ -9,7 +9,8 @@
     get/2,
     evict/2,
     count/1,
-    sync/1
+    sync/1,
+    drain/1
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -110,6 +111,12 @@ sync(Cache) ->
 count(Cache) ->
     cream_nif:count(Cache).
 
+-spec drain(
+    Cache :: reference()
+) -> ok.
+drain(Cache) ->
+    cream_nif:drain(Cache).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Testing                                                                %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -152,6 +159,10 @@ basic_all_feature__test() ->
     %% it to guarantee that `count' is accurate.
     ok = cream:sync(Cache),
     ?assertEqual(notfound, cream:get(Cache, three)),
+
+    ok = cream:drain(Cache),
+    ok = cream:sync(Cache),
+    ?assertEqual(0, cream:count(Cache)),
 
     ok.
 

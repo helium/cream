@@ -68,6 +68,12 @@ fn count(cache: ResourceArc<Cream>) -> u64 {
     cache.entry_count()
 }
 
+#[rustler::nif]
+fn drain(cache: ResourceArc<Cream>) -> Atom {
+    cache.invalidate_all();
+    atoms::ok()
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Helpers                                                                //
 ////////////////////////////////////////////////////////////////////////////
@@ -137,6 +143,6 @@ pub fn load(env: Env, _load_info: Term) -> bool {
 
 rustler::init!(
     "cream_nif",
-    [new, insert, contains, get, evict, sync, count],
+    [new, insert, contains, get, evict, sync, count, drain],
     load = load
 );

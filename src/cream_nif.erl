@@ -7,7 +7,8 @@
     get/2,
     evict/2,
     count/1,
-    sync/1
+    sync/1,
+    drain/1
 ]).
 
 -on_load(init/0).
@@ -60,6 +61,12 @@ sync(_Cache) ->
     Cache :: reference()
 ) -> non_neg_integer().
 count(_Cache) ->
+    ?NOT_LOADED.
+
+-spec drain(
+    Cache :: reference()
+) -> ok.
+drain(_Cache) ->
     ?NOT_LOADED.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
