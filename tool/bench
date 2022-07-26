@@ -1,0 +1,135 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%!
+
+main(["--help"]) ->
+    io:format(
+        "usage and defaults:\n"
+        "\n"
+        "bench "
+        "--path ../_build/default/lib/cream/ebin "
+        "--worker_count 1 2 4 8 16 "
+        "--cache_count 1 2 4 "
+        "\n"
+        "\n"
+        "worker_count - concurrent number of workers per cache\n"
+        "cache_count - concurrent number of caches\n"
+        "value_fun:\n"
+        "  fast - constant time, fast function\n"
+        "  slow - variable time, slow function\n"
+        "  slow2 - constant time, slow function\n");
+
+main(Args) ->
+
+    RunConfig = process_args(Args),
+    WorkerCounts = maps:get(worker_count, RunConfig, [1, 2, 4, 8, 16]),
+    CacheCounts = maps:get(cache_count, RunConfig, [1, 2, 4]),
+    ValueFunType = maps:get(value_fun, RunConfig, slow),
+
+    load_cream(RunConfig),
+    ConfigMaps =
+        test_count(
+            [
+                #{
+                    max_capacity => 1_000_000,
+                    cache_count => CacheCount,
+                    worker_count_per_cache => WorkerCount,
+                    value_fun_type => ValueFunType,
+                    iterations => 100_000,
+                    test_count => 3
+                } || WorkerCount <- WorkerCounts, CacheCount <- CacheCounts
+            ]),
+
+    Results = [cream_benchmark:bench(ConfigMap) || ConfigMap <-  ConfigMaps],
+    io:format("~s~n", [report(Results)]).
+
+
+process_args(Args) ->
+    {_, C} =
+        lists:foldl(
+            fun(Arg, {LastFlag, RunConfig}) ->
+                case Arg of
+                    "--" ++ Flag ->
+                        {list_to_atom(Flag), RunConfig};
+                    Val ->
+                        {LastFlag, process_arg(LastFlag, Val, RunConfig)}
+                end
+            end, {undefined, #{}}, Args),
+    C.
+
+
+process_arg(path, Path, Config) ->
+    Config#{path => Path};
+process_arg(value_fun, FunType, Config) ->
+    Config#{value_fun => list_to_atom(FunType)};
+process_arg(cache_count, Value, Config) ->
+    integer_list_flag(cache_count, Value, Config);
+process_arg(worker_count, Value, Config) ->
+    integer_list_flag(worker_count, Value, Config).
+
+
+integer_list_flag(Flag, Value, Config) ->
+    maps:update_with(Flag, fun(List) -> [Value | List] end, [Value], Config).
+
+
+load_cream(RunConfig) ->
+    add_path(RunConfig),
+    ok = application:load(cream).
+
+
+add_path(RunConfig) ->
+    Path = maps:get(path, RunConfig, "../_build/default/lib/cream/ebin"),
+    true = code:add_path(Path).
+
+
+test_count([]) ->
+    [];
+
+test_count([ConfigMap | Rest]) ->
+    #{test_count := TestCount} = ConfigMap,
+    lists:duplicate(TestCount, ConfigMap) ++ test_count(Rest).
+
+
+report(Results) ->
+    [
+        " type CacheCount Worker/cache Iterations/Worker cache/mills\n" |
+        [report_one(Result) || Result <- sort_results(Results)]
+    ].
+
+
+sort_results(Results) ->
+    lists:sort(
+        fun(#{config_map := #{
+                cache_count := CacheCountA,
+                worker_count_per_cache := WorkerCountA}},
+            #{config_map := #{
+                cache_count := CacheCountB,
+                worker_count_per_cache := WorkerCountB}}) ->
+            if
+                CacheCountA < CacheCountB -> true;
+                CacheCountA == CacheCountB -> WorkerCountA =< WorkerCountB;
+                true -> false
+            end
+        end, Results).
+
+
+report_one(ResultMap) ->
+    #{
+        config_map := #{
+            cache_count := CacheCount,
+            worker_count_per_cache := WorkerCountPerCache,
+            value_fun_type := ValueFunType,
+            iterations := Iterations
+        },
+        time_micros := TimeMicros
+    } = ResultMap,
+
+    LookupCount = Iterations*WorkerCountPerCache*CacheCount,
+    LookupsPerMilli = LookupCount * 1_000 / TimeMicros,
+    io_lib:format("~5p~11B~13B~17Bk~12.1f~n", [
+        ValueFunType,
+        CacheCount,
+        WorkerCountPerCache,
+        Iterations div 1000,
+        LookupsPerMilli
+    ]).
