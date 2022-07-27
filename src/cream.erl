@@ -131,25 +131,25 @@ drain(Cache) ->
 basic_all_feature__test() ->
     {ok, Cache} = cream:new(3),
 
-    ok = cream:insert(Cache, 1, 1),
+    1 = cream:cache(Cache, 1, fun() -> 1 end),
     ?assertEqual(true, cream:contains(Cache, 1)),
     ?assertEqual(false, cream:contains(Cache, <<2>>)),
     ?assertEqual(false, cream:contains(Cache, three)),
     ?assertEqual(false, cream:contains(Cache, "four")),
 
-    ok = cream:insert(Cache, <<2>>, two),
+    two = cream:cache(Cache, <<2>>, fun() -> two end),
     ?assertEqual(true, cream:contains(Cache, 1)),
     ?assertEqual(true, cream:contains(Cache, <<2>>)),
     ?assertEqual(false, cream:contains(Cache, three)),
     ?assertEqual(false, cream:contains(Cache, "four")),
 
-    ok = cream:insert(Cache, three, "three"),
+    "three" = cream:cache(Cache, three, fun() -> "three" end),
     ?assertEqual(true, cream:contains(Cache, 1)),
     ?assertEqual(true, cream:contains(Cache, <<2>>)),
     ?assertEqual(true, cream:contains(Cache, three)),
     ?assertEqual(false, cream:contains(Cache, "four")),
 
-    ok = cream:insert(Cache, "four", <<"four">>),
+    <<"four">> = cream:cache(Cache, "four", fun() -> <<"four">> end),
     ?assertEqual(true, cream:contains(Cache, <<2>>)),
     ?assertEqual(true, cream:contains(Cache, three)),
     ?assertEqual(true, cream:contains(Cache, "four")),
