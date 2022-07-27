@@ -1,9 +1,11 @@
 use moka::sync::{Cache, ConcurrentCacheExt};
-use rustler::{atoms, Atom, Binary, Encoder, Env, ListIterator, OwnedBinary, ResourceArc, Term};
-use rustler_stored_term::term_box::TermBox;
+use rustler::{
+    atoms, Atom, Binary, Encoder, Env, ListIterator, NewBinary, OwnedBinary, ResourceArc, Term,
+};
 use std::{
     borrow::Borrow,
     hash::{Hash, Hasher},
+    sync::Arc,
     time::Duration,
 };
 
@@ -33,8 +35,11 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
 }
 
 #[rustler::nif]
-fn insert(cache: ResourceArc<Cream>, key: Binary, value: Term) -> Atom {
-    cache.insert(Bin(key.to_owned().unwrap()), TermBox::new(&value));
+fn insert(cache: ResourceArc<Cream>, key: Binary, value: Binary) -> Atom {
+    cache.insert(
+        Bin(key.to_owned().expect("no mem")),
+        Arc::new(Bin(value.to_owned().expect("no mem"))),
+    );
     atoms::ok()
 }
 
@@ -46,7 +51,7 @@ fn contains(cache: ResourceArc<Cream>, key: Binary) -> bool {
 #[rustler::nif]
 fn get<'a>(env: Env<'a>, cache: ResourceArc<Cream>, key: Binary) -> Term<'a> {
     match cache.get(key.as_slice()) {
-        Some(term_box) => (atoms::ok(), term_box.get(env)).encode(env),
+        Some(value) => (atoms::ok(), value.to_unowned(env)).encode(env),
         None => atoms::notfound().encode(env),
     }
 }
@@ -82,6 +87,14 @@ fn drain(cache: ResourceArc<Cream>) -> Atom {
 /// traits.
 struct Bin(OwnedBinary);
 
+impl Bin {
+    fn to_unowned<'a>(&self, env: Env<'a>) -> Binary<'a> {
+        let mut newbin = NewBinary::new(env, self.0.as_slice().len());
+        newbin.as_mut_slice().copy_from_slice(self.0.as_slice());
+        newbin.into()
+    }
+}
+
 impl Borrow<[u8]> for Bin {
     fn borrow(&self) -> &[u8] {
         self.0.as_slice()
@@ -111,10 +124,18 @@ unsafe impl Sync for Bin {}
 // Resource                                                               //
 ////////////////////////////////////////////////////////////////////////////
 
-struct Cream(Cache<Bin, TermBox>);
+// Note that values are wrapped in an Arc because Moka makes pretty
+// heavy use of cloning:
+//
+// https://docs.rs/moka/latest/moka/sync/struct.Cache.html#avoiding-to-clone-the-value-at-get
+//
+//                 Key
+//                 |    Value
+//                 |    |
+struct Cream(Cache<Bin, Arc<Bin>>);
 
 impl std::ops::Deref for Cream {
-    type Target = Cache<Bin, TermBox>;
+    type Target = Cache<Bin, Arc<Bin>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

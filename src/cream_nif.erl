@@ -25,7 +25,7 @@ new(_MaxCapacity, _CacheOpts) ->
 -spec insert(
     Cache :: reference(),
     Key :: binary(),
-    Value :: term()
+    Value :: binary()
 ) -> ok.
 insert(_Cache, _Key, _Value) ->
     ?NOT_LOADED.
@@ -40,7 +40,7 @@ contains(_Cache, _Key) ->
 -spec get(
     Cache :: reference(),
     Key :: binary()
-) -> notfound | {ok, term()}.
+) -> notfound | {ok, binary()}.
 get(_Cache, _Key) ->
     ?NOT_LOADED.
 
