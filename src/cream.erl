@@ -20,13 +20,13 @@
 %% Advanced cache options.
 -type advanced_cache_opts() :: [
     %% Sets the initial capacity (number of entries) of the cache.
-    {initial_capacity, Items :: non_neg_integer()} |
+    {initial_capacity, Items :: non_neg_integer()}
     %% A cached entry will be expired after the specified duration
     %% past from insert.
-    {seconds_to_live, Seconds :: non_neg_integer()} |
+    | {seconds_to_live, Seconds :: non_neg_integer()}
     %% A cached entry will be expired after the specified duration
     %% past from get or insert.
-    {seconds_to_idle, Seconds :: non_neg_integer()}
+    | {seconds_to_idle, Seconds :: non_neg_integer()}
 ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
