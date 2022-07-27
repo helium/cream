@@ -58,7 +58,8 @@ cache(Cache, Key, ExpensiveValFun) ->
             binary_to_term(CachedValBin);
         notfound ->
             Val = ExpensiveValFun(),
-            ok = cream_nif:insert(Cache, KeyBin, Val),
+            ValBin = term_to_binary(Val),
+            ok = cream_nif:insert(Cache, KeyBin, ValBin),
             Val
     end.
 
