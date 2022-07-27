@@ -1,0 +1,14 @@
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: 24.2
+          rebar3-version: 3.14.3
+      - run: rebar3 eunit
+      - run: rebar3 fmt --check
