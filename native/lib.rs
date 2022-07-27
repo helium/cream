@@ -16,7 +16,7 @@ use std::{
 #[rustler::nif]
 fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> Term<'a> {
     let mut builder = Cache::builder().max_capacity(max_capacity);
-
+    let mut with_size_metric = false;
     for opt in advanced_opts {
         match opt.decode::<(Atom, u64)>() {
             Ok((atom, val)) if atom == atoms::initial_capacity() => {
@@ -28,10 +28,21 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
             Ok((atom, val)) if atom == atoms::seconds_to_idle() => {
                 builder = builder.time_to_idle(Duration::from_secs(val))
             }
-            _ => return (atoms::error(), ("invalid option", opt)).encode(env),
+            _ => match opt.decode::<(Atom, Atom)>() {
+                Ok((atom, val)) if atom == atoms::size_metric() && val == atoms::items() => (),
+                Ok((atom, val)) if atom == atoms::size_metric() && val == atoms::bytes() => {
+                    with_size_metric = true;
+                    builder = builder.weigher(weight_in_bytes_fn);
+                }
+                _ => return (atoms::error(), ("invalid option", opt)).encode(env),
+            },
         }
     }
-    (atoms::ok(), ResourceArc::new(Cream(builder.build()))).encode(env)
+    (
+        atoms::ok(),
+        ResourceArc::new(Cream(builder.build(), with_size_metric)),
+    )
+        .encode(env)
 }
 
 #[rustler::nif]
@@ -69,8 +80,21 @@ fn sync(cache: ResourceArc<Cream>) -> Atom {
 }
 
 #[rustler::nif]
-fn count(cache: ResourceArc<Cream>) -> u64 {
+fn entry_count(cache: ResourceArc<Cream>) -> u64 {
     cache.entry_count()
+}
+
+#[rustler::nif]
+fn byte_size(env: Env<'_>, cache: ResourceArc<Cream>) -> Term<'_> {
+    if cache.has_weight_fn() {
+        (atoms::ok(), cache.weighted_size()).encode(env)
+    } else {
+        (
+            atoms::error(),
+            "cache was not created with `{size_metric, bytes}'",
+        )
+            .encode(env)
+    }
 }
 
 #[rustler::nif]
@@ -92,6 +116,10 @@ impl Bin {
         let mut newbin = NewBinary::new(env, self.0.as_slice().len());
         newbin.as_mut_slice().copy_from_slice(self.0.as_slice());
         newbin.into()
+    }
+
+    fn len(&self) -> usize {
+        self.0.as_slice().len()
     }
 }
 
@@ -129,10 +157,23 @@ unsafe impl Sync for Bin {}
 //
 // https://docs.rs/moka/latest/moka/sync/struct.Cache.html#avoiding-to-clone-the-value-at-get
 //
-//                 Key
-//                 |    Value
-//                 |    |
-struct Cream(Cache<Bin, Arc<Bin>>);
+//                 Key             Using byte-sized bounding.
+//                 |    Value      |
+//                 |    |          |
+struct Cream(Cache<Bin, Arc<Bin>>, bool);
+
+impl Cream {
+    /// Returns `true` when cache was constructed with byte-sized weight function.
+    fn has_weight_fn(&self) -> bool {
+        self.1
+    }
+}
+
+// Weight function provided to Moka when user specifies `{size_metric,
+// bytes}`.
+fn weight_in_bytes_fn(k: &Bin, v: &Arc<Bin>) -> u32 {
+    (k.len() + v.len()) as u32
+}
 
 impl std::ops::Deref for Cream {
     type Target = Cache<Bin, Arc<Bin>>;
@@ -148,12 +189,15 @@ impl std::ops::Deref for Cream {
 
 mod atoms {
     super::atoms! {
+        bytes,
         error,
         initial_capacity,
+        items,
         notfound,
         ok,
         seconds_to_idle,
         seconds_to_live,
+        size_metric,
     }
 }
 
@@ -164,6 +208,16 @@ pub fn load(env: Env, _load_info: Term) -> bool {
 
 rustler::init!(
     "cream_nif",
-    [new, insert, contains, get, evict, sync, count, drain],
+    [
+        new,
+        insert,
+        contains,
+        get,
+        evict,
+        sync,
+        entry_count,
+        byte_size,
+        drain,
+    ],
     load = load
 );
