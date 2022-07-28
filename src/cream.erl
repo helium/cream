@@ -9,7 +9,7 @@
     get/2,
     evict/2,
     entry_count/1,
-    byte_size/1,
+    mem_used/1,
     sync/1,
     drain/1
 ]).
@@ -22,9 +22,9 @@
 -type advanced_cache_opts() :: [
     %% Specify whether to use item count or key+value byte-size cache
     %% bounds.
-    {size_metric, items | bytes}
+    {bounding, items | memory}
     %% Sets the initial capacity (entries or size) of the cache.
-    | {initial_capacity, ItemsOrBytes :: non_neg_integer()}
+    | {initial_capacity, ItemsOrMemory :: non_neg_integer()}
     %% A cached entry will be expired after the specified duration
     %% past from insert.
     | {seconds_to_live, Seconds :: non_neg_integer()}
@@ -120,11 +120,11 @@ sync(Cache) ->
 entry_count(Cache) ->
     cream_nif:entry_count(Cache).
 
--spec byte_size(
+-spec mem_used(
     Cache :: reference()
 ) -> non_neg_integer().
-byte_size(Cache) ->
-    cream_nif:byte_size(Cache).
+mem_used(Cache) ->
+    cream_nif:mem_used(Cache).
 
 -spec drain(
     Cache :: reference()

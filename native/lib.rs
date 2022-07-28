@@ -16,7 +16,7 @@ use std::{
 #[rustler::nif]
 fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> Term<'a> {
     let mut builder = Cache::builder().max_capacity(max_capacity);
-    let mut with_size_metric = false;
+    let mut with_bounding = false;
     for opt in advanced_opts {
         match opt.decode::<(Atom, u64)>() {
             Ok((atom, val)) if atom == atoms::initial_capacity() => {
@@ -29,10 +29,10 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
                 builder = builder.time_to_idle(Duration::from_secs(val))
             }
             _ => match opt.decode::<(Atom, Atom)>() {
-                Ok((atom, val)) if atom == atoms::size_metric() && val == atoms::items() => (),
-                Ok((atom, val)) if atom == atoms::size_metric() && val == atoms::bytes() => {
-                    with_size_metric = true;
-                    builder = builder.weigher(weight_in_bytes_fn);
+                Ok((atom, val)) if atom == atoms::bounding() && val == atoms::items() => (),
+                Ok((atom, val)) if atom == atoms::bounding() && val == atoms::memory() => {
+                    with_bounding = true;
+                    builder = builder.weigher(weight_in_memory_fn);
                 }
                 _ => return (atoms::error(), ("invalid option", opt)).encode(env),
             },
@@ -40,7 +40,7 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
     }
     (
         atoms::ok(),
-        ResourceArc::new(Cream(builder.build(), with_size_metric)),
+        ResourceArc::new(Cream(builder.build(), with_bounding)),
     )
         .encode(env)
 }
@@ -85,13 +85,13 @@ fn entry_count(cache: ResourceArc<Cream>) -> u64 {
 }
 
 #[rustler::nif]
-fn byte_size(env: Env<'_>, cache: ResourceArc<Cream>) -> Term<'_> {
+fn mem_used(env: Env<'_>, cache: ResourceArc<Cream>) -> Term<'_> {
     if cache.has_weight_fn() {
         (atoms::ok(), cache.weighted_size()).encode(env)
     } else {
         (
             atoms::error(),
-            "cache was not created with `{size_metric, bytes}'",
+            "cache was not created with `{bounding, memory}'",
         )
             .encode(env)
     }
@@ -169,9 +169,9 @@ impl Cream {
     }
 }
 
-// Weight function provided to Moka when user specifies `{size_metric,
-// bytes}`.
-fn weight_in_bytes_fn(k: &Bin, v: &Arc<Bin>) -> u32 {
+// Weight function provided to Moka when user specifies `{bounding,
+// memory}`.
+fn weight_in_memory_fn(k: &Bin, v: &Arc<Bin>) -> u32 {
     (k.len() + v.len()) as u32
 }
 
@@ -189,15 +189,15 @@ impl std::ops::Deref for Cream {
 
 mod atoms {
     super::atoms! {
-        bytes,
+        bounding,
         error,
         initial_capacity,
         items,
+        memory,
         notfound,
         ok,
         seconds_to_idle,
         seconds_to_live,
-        size_metric,
     }
 }
 
@@ -216,7 +216,7 @@ rustler::init!(
         evict,
         sync,
         entry_count,
-        byte_size,
+        mem_used,
         drain,
     ],
     load = load

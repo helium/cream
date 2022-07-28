@@ -7,7 +7,7 @@
     get/2,
     evict/2,
     entry_count/1,
-    byte_size/1,
+    mem_used/1,
     sync/1,
     drain/1
 ]).
@@ -64,10 +64,10 @@ sync(_Cache) ->
 entry_count(_Cache) ->
     ?NOT_LOADED.
 
--spec byte_size(
+-spec mem_used(
     Cache :: reference()
 ) -> {ok, non_neg_integer()} | {error, Reason :: term()}.
-byte_size(_Cache) ->
+mem_used(_Cache) ->
     ?NOT_LOADED.
 
 -spec drain(
