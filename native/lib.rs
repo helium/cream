@@ -16,7 +16,7 @@ use std::{
 #[rustler::nif]
 fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> Term<'a> {
     let mut builder = Cache::builder().max_capacity(max_capacity);
-    let mut with_bounding = false;
+    let mut memory_bound = false;
     for opt in advanced_opts {
         match opt.decode::<(Atom, u64)>() {
             Ok((atom, val)) if atom == atoms::initial_capacity() => {
@@ -31,8 +31,8 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
             _ => match opt.decode::<(Atom, Atom)>() {
                 Ok((atom, val)) if atom == atoms::bounding() && val == atoms::items() => (),
                 Ok((atom, val)) if atom == atoms::bounding() && val == atoms::memory() => {
-                    with_bounding = true;
-                    builder = builder.weigher(weight_in_memory_fn);
+                    memory_bound = true;
+                    builder = builder.weigher(entry_weight_fn);
                 }
                 _ => return (atoms::error(), ("invalid option", opt)).encode(env),
             },
@@ -40,7 +40,10 @@ fn new<'a>(env: Env<'a>, max_capacity: u64, advanced_opts: ListIterator<'a>) -> 
     }
     (
         atoms::ok(),
-        ResourceArc::new(Cream(builder.build(), with_bounding)),
+        ResourceArc::new(Cream {
+            cache: builder.build(),
+            memory_bound,
+        }),
     )
         .encode(env)
 }
@@ -86,7 +89,7 @@ fn entry_count(cache: ResourceArc<Cream>) -> u64 {
 
 #[rustler::nif]
 fn mem_used(env: Env<'_>, cache: ResourceArc<Cream>) -> Term<'_> {
-    if cache.has_weight_fn() {
+    if cache.memory_bound {
         (atoms::ok(), cache.weighted_size()).encode(env)
     } else {
         (
@@ -157,29 +160,24 @@ unsafe impl Sync for Bin {}
 //
 // https://docs.rs/moka/latest/moka/sync/struct.Cache.html#avoiding-to-clone-the-value-at-get
 //
-//                 Key             Using byte-sized bounding.
-//                 |    Value      |
-//                 |    |          |
-struct Cream(Cache<Bin, Arc<Bin>>, bool);
-
-impl Cream {
-    /// Returns `true` when cache was constructed with byte-sized weight function.
-    fn has_weight_fn(&self) -> bool {
-        self.1
-    }
+struct Cream {
+    //           Key
+    //           |    Value
+    //           |    |
+    cache: Cache<Bin, Arc<Bin>>,
+    memory_bound: bool,
 }
 
 // Weight function provided to Moka when user specifies `{bounding,
 // memory}`.
-fn weight_in_memory_fn(k: &Bin, v: &Arc<Bin>) -> u32 {
+fn entry_weight_fn(k: &Bin, v: &Arc<Bin>) -> u32 {
     (k.len() + v.len()) as u32
 }
 
 impl std::ops::Deref for Cream {
     type Target = Cache<Bin, Arc<Bin>>;
-
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.cache
     }
 }
 
