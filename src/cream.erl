@@ -8,7 +8,8 @@
     insert/3,
     get/2,
     evict/2,
-    count/1,
+    entry_count/1,
+    mem_used/1,
     sync/1,
     drain/1
 ]).
@@ -19,8 +20,11 @@
 
 %% Advanced cache options.
 -type advanced_cache_opts() :: [
-    %% Sets the initial capacity (number of entries) of the cache.
-    {initial_capacity, Items :: non_neg_integer()}
+    %% Specify whether to use item count or key+value byte-size cache
+    %% bounds.
+    {bounding, items | memory}
+    %% Sets the initial capacity (entries or size) of the cache.
+    | {initial_capacity, ItemsOrMemory :: non_neg_integer()}
     %% A cached entry will be expired after the specified duration
     %% past from insert.
     | {seconds_to_live, Seconds :: non_neg_integer()}
@@ -110,11 +114,17 @@ evict(Cache, Key) ->
 sync(Cache) ->
     cream_nif:sync(Cache).
 
--spec count(
+-spec entry_count(
     Cache :: reference()
 ) -> non_neg_integer().
-count(Cache) ->
-    cream_nif:count(Cache).
+entry_count(Cache) ->
+    cream_nif:entry_count(Cache).
+
+-spec mem_used(
+    Cache :: reference()
+) -> non_neg_integer().
+mem_used(Cache) ->
+    cream_nif:mem_used(Cache).
 
 -spec drain(
     Cache :: reference()
@@ -129,7 +139,7 @@ drain(Cache) ->
 
 -include_lib("eunit/include/eunit.hrl").
 
-basic_all_feature__test() ->
+basic_all_features_test() ->
     {ok, Cache} = cream:new(3),
 
     1 = cream:cache(Cache, 1, fun() -> 1 end),
@@ -167,7 +177,7 @@ basic_all_feature__test() ->
 
     ok = cream:drain(Cache),
     ok = cream:sync(Cache),
-    ?assertEqual(0, cream:count(Cache)),
+    ?assertEqual(0, cream:entry_count(Cache)),
 
     ok.
 

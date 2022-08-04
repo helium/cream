@@ -6,7 +6,8 @@
     insert/3,
     get/2,
     evict/2,
-    count/1,
+    entry_count/1,
+    mem_used/1,
     sync/1,
     drain/1
 ]).
@@ -18,7 +19,7 @@
 -spec new(
     MaxCapacity :: non_neg_integer(),
     CacheOpts :: term()
-) -> {ok, reference()} | {error, term()}.
+) -> {ok, reference()} | {error, Reason :: term()}.
 new(_MaxCapacity, _CacheOpts) ->
     ?NOT_LOADED.
 
@@ -57,10 +58,16 @@ evict(_Cache, _Key) ->
 sync(_Cache) ->
     ?NOT_LOADED.
 
--spec count(
+-spec entry_count(
     Cache :: reference()
 ) -> non_neg_integer().
-count(_Cache) ->
+entry_count(_Cache) ->
+    ?NOT_LOADED.
+
+-spec mem_used(
+    Cache :: reference()
+) -> {ok, non_neg_integer()} | {error, Reason :: term()}.
+mem_used(_Cache) ->
     ?NOT_LOADED.
 
 -spec drain(
