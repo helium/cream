@@ -1,3 +1,5 @@
+[![.github/workflows/ci.yml](https://github.com/helium/cream/actions/workflows/ci.yml/badge.svg)](https://github.com/helium/cream/actions/workflows/ci.yml)
+
 Cache Rules Everything Around Me
 ================================
 
